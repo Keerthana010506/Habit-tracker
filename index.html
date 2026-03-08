@@ -1,123 +1,309 @@
 <!DOCTYPE html>
-<html>
+
+<html lang="en">
 <head>
-<title>Habit Tracker Dashboard</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Habit Tracker Pro</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
-body{
+*{
 margin:0;
+padding:0;
+box-sizing:border-box;
 font-family:Arial;
-background:url("https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d") no-repeat center/cover;
-height:100vh;
 }
 
-nav{
-background:rgba(0,0,0,0.7);
-padding:15px;
-text-align:center;
-}
-
-nav a{
+body{
+background:linear-gradient(135deg,#667eea,#764ba2);
+min-height:100vh;
 color:white;
-margin:0 15px;
-text-decoration:none;
-font-size:18px;
-}
-
-nav a:hover{
-color:#4CAF50;
+padding:30px;
 }
 
 .container{
-background:rgba(255,255,255,0.85);
-backdrop-filter:blur(10px);
-width:380px;
-margin:60px auto;
-padding:25px;
+max-width:900px;
+margin:auto;
+backdrop-filter:blur(12px);
+background:rgba(255,255,255,0.1);
 border-radius:15px;
-box-shadow:0 10px 25px rgba(0,0,0,0.3);
+padding:25px;
+box-shadow:0 10px 40px rgba(0,0,0,0.3);
 }
 
 h1{
 text-align:center;
+margin-bottom:20px;
+}
+
+.top{
+display:flex;
+gap:10px;
+margin-bottom:20px;
 }
 
 input{
-width:70%;
-padding:8px;
+flex:1;
+padding:10px;
+border:none;
+border-radius:8px;
 }
 
 button{
-padding:8px 12px;
-background:#4CAF50;
+padding:10px 15px;
 border:none;
-color:white;
-border-radius:5px;
+border-radius:8px;
+background:#00e676;
 cursor:pointer;
+font-weight:bold;
 }
 
 button:hover{
-background:#388e3c;
+opacity:0.9;
 }
 
 ul{
 list-style:none;
-padding:0;
+margin-top:10px;
 }
 
 li{
 display:flex;
 justify-content:space-between;
-margin-top:10px;
+align-items:center;
+background:rgba(255,255,255,0.15);
+padding:10px;
+margin-bottom:8px;
+border-radius:8px;
 }
 
-.completed{
-text-decoration:line-through;
-color:gray;
+.chartBox{
+margin-top:40px;
+background:rgba(255,255,255,0.1);
+padding:20px;
+border-radius:12px;
 }
 
-.progress-bar{
-background:#ddd;
-height:10px;
-border-radius:10px;
-margin-top:20px;
+.heatmap{
+margin-top:40px;
+display:grid;
+grid-template-columns:repeat(7,1fr);
+gap:6px;
 }
 
-#progress{
-height:10px;
-background:#4CAF50;
-width:0%;
-border-radius:10px;
+.day{
+width:100%;
+padding-top:100%;
+background:#2d2d2d;
+border-radius:3px;
+}
+
+.level1{background:#4caf50;}
+.level2{background:#2e7d32;}
+.level3{background:#1b5e20;}
+
+.dark{
+background:#111;
+}
+
+.toggle{
+margin-top:15px;
+}
+
+@media(max-width:600px){
+.top{
+flex-direction:column;
+}
 }
 
 </style>
+
 </head>
 
 <body>
 
-<nav>
-<a href="index.html">Dashboard</a>
-<a href="analytics.html">Analytics</a>
-<a href="settings.html">Settings</a>
-</nav>
-
 <div class="container">
 
-<h1>Habit Tracker</h1>
+<h1>🚀 Habit Tracker Pro</h1>
 
-<input id="habitInput" placeholder="Add new habit">
-<button onclick="addHabit()">Add</button>
+<div class="top">
+<input id="habitInput" placeholder="Enter new habit...">
+<button onclick="addHabit()">Add Habit</button>
+</div>
 
 <ul id="habitList"></ul>
 
-<div class="progress-bar">
-<div id="progress"></div>
+<div class="toggle">
+<button onclick="toggleDark()">🌙 Toggle Dark Mode</button>
+</div>
+
+<div class="chartBox">
+<h2>📊 Habit Progress</h2>
+<canvas id="habitChart"></canvas>
+</div>
+
+<div>
+<h2 style="margin-top:40px">🔥 Habit Heatmap</h2>
+<div class="heatmap" id="heatmap"></div>
 </div>
 
 </div>
 
-<script src="script.js"></script>
+<script>
+
+let habits = JSON.parse(localStorage.getItem("habits")) || [];
+let heatData = JSON.parse(localStorage.getItem("heat")) || [];
+
+const input = document.getElementById("habitInput");
+const list = document.getElementById("habitList");
+
+function save(){
+localStorage.setItem("habits",JSON.stringify(habits));
+localStorage.setItem("heat",JSON.stringify(heatData));
+}
+
+function addHabit(){
+
+let name=input.value.trim();
+if(!name) return;
+
+habits.push({
+name:name,
+done:false,
+streak:0,
+lastDate:null
+});
+
+input.value="";
+save();
+render();
+
+}
+
+function toggleHabit(i){
+
+let today=new Date().toDateString();
+
+if(habits[i].lastDate!==today){
+
+habits[i].done=true;
+habits[i].streak++;
+
+habits[i].lastDate=today;
+
+heatData.push(today);
+
+}
+
+save();
+render();
+
+}
+
+function deleteHabit(i){
+
+habits.splice(i,1);
+save();
+render();
+
+}
+
+function render(){
+
+list.innerHTML="";
+
+habits.forEach((h,i)=>{
+
+let li=document.createElement("li");
+
+li.innerHTML=`
+<span onclick="toggleHabit(${i})">
+${h.done ? "✅" : "⬜"} ${h.name}
+🔥 ${h.streak}
+</span>
+
+<button onclick="deleteHabit(${i})">❌</button>
+`;
+
+list.appendChild(li);
+
+});
+
+updateChart();
+updateHeatmap();
+
+}
+
+let chart;
+
+function updateChart(){
+
+let labels=habits.map(h=>h.name);
+let data=habits.map(h=>h.streak);
+
+if(chart) chart.destroy();
+
+chart=new Chart(document.getElementById("habitChart"),{
+type:"bar",
+data:{
+labels:labels,
+datasets:[{
+label:"Habit Streak",
+data:data
+}]
+}
+});
+
+}
+
+function updateHeatmap(){
+
+const map=document.getElementById("heatmap");
+map.innerHTML="";
+
+let counts={};
+
+heatData.forEach(d=>{
+counts[d]=(counts[d]||0)+1;
+});
+
+let days=120;
+
+for(let i=0;i<days;i++){
+
+let d=new Date();
+d.setDate(d.getDate()-i);
+
+let key=d.toDateString();
+
+let count=counts[key]||0;
+
+let div=document.createElement("div");
+div.className="day";
+
+if(count==1) div.classList.add("level1");
+if(count==2) div.classList.add("level2");
+if(count>=3) div.classList.add("level3");
+
+map.appendChild(div);
+
+}
+
+}
+
+function toggleDark(){
+
+document.body.classList.toggle("dark");
+
+}
+
+render();
+
+</script>
 
 </body>
 </html>
